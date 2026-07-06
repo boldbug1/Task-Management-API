@@ -1,14 +1,8 @@
 import express from 'express';
 const router = express.Router();
-import {Pool} from 'pg';
+import pool from '../database/pool.js'
+import { getTasks } from '../database/queries.js';
 
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_DATABASE, 
-  password: process.env.DB_PASSWORD, 
-  port: parseInt(process.env.DB_PORT) || 5432
-})
 
 router.get('/', async (req, res) => {
   try {
@@ -18,43 +12,7 @@ router.get('/', async (req, res) => {
     const limit = parseInt(req.query.limit) || 3
     const offset = (current_page - 1) * limit
 
-    let queryParams = [assigned_person + '%']
-    let baseWhereClause = `WHERE assigned_to ILIKE $1`
-
-    if (priority) {
-      queryParams.push(priority)
-      baseWhereClause += ` AND priority = $${queryParams.length}`
-    }
-    const tasksQuery = `
-    SELECT * FROM tasks
-    ${baseWhereClause}
-    LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2};
-    `
-
-    const tasksResults = await pool.query(tasksQuery, [
-      ...queryParams,
-      limit,
-      offset
-    ])
-
-    const countQuery = `
-    SELECT COUNT(*) FROM tasks
-    ${baseWhereClause};
-    `
-
-    const countResults = await pool.query(countQuery, [...queryParams])
-
-    const totalCount = parseInt(countResults.rows[0].count)
-
-    const response = {
-      tasks: tasksResults.rows,
-      meta: {
-        currentPage: current_page,
-        limit: limit,
-        totalTasks: totalCount,
-        totalPages: Math.ceil(totalCount / limit)
-      }
-    }
+    const response = await getTasks(assigned_person,priority,limit,offset,current_page);
 
     console.log(response)
     res.status(200).json(response)

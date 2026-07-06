@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import express from 'express'
-import { Pool } from 'pg'
 import cors from 'cors'
 import tasksRouter from './routes/tasksRouter.js';
 
