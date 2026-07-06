@@ -1,0 +1,4 @@
+node_modules/
+*.html
+TO_DO.md
+.env
