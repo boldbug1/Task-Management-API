@@ -1,9 +1,18 @@
+import { number } from "zod";
 import pool from "./pool.js"
 
-export async function getTasks(assigned_person, priority, limit, offset, current_page) {
+interface TaskUpdates {
+  title?: string;
+  assigned_to?: string;
+  priority?: string;
+  status?: string;
+  due_date?: string | Date;
+}
+
+export async function getTasks(assigned_person:string, priority:string|undefined, limit:number, offset:number, current_page:number) {
 
   try {
-    let queryParams = [assigned_person + '%']
+    let queryParams:(string | number)[] = [assigned_person + '%']
     let baseWhereClause = `WHERE assigned_to ILIKE $1`
 
     if (priority) {
@@ -28,7 +37,6 @@ export async function getTasks(assigned_person, priority, limit, offset, current
     `
 
     const countResults = await pool.query(countQuery, [...queryParams])
-
     const totalCount = parseInt(countResults.rows[0]?.total) || 0
 
     const response = {
@@ -43,13 +51,14 @@ export async function getTasks(assigned_person, priority, limit, offset, current
 
     return response;
   } catch (error) {
-    console.error("Database error in getTasks", error.message);
+    const errMsg = error instanceof Error ? error.message : String(error); //learn how this works
+    console.error("Database error in getTasks", errMsg);
     throw error;
   }
 }
 
 
-export async function postTasks(title, assigned_to,priority,status,due_date) {
+export async function postTasks(title:string, assigned_to:string,priority:string,status:string,due_date:string|undefined) {
   try {
   const taskCreateQuery = `
   INSERT INTO tasks (title,assigned_to,priority,status,due_date)
@@ -70,17 +79,18 @@ export async function postTasks(title, assigned_to,priority,status,due_date) {
  
   return tasksCreate.rows[0]; 
   } catch (error) {
-    console.error("Database error in postTasks", error.message);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error("Database error in postTasks", errMsg);
     throw error;
 }
 }
 
 
-export async function patchTasks(taskId,Updates) {
+export async function patchTasks(taskId:number,Updates:TaskUpdates) {
 
   try{
-    let queryParts = []
-    let queryValues = []
+    let queryPart:(string|number)[] = []
+    let queryValues: = []
     let PlaceHolderIndex = 1
     for (const key in Updates) {
       if (

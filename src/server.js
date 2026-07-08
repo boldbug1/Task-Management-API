@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express'
 import cors from 'cors'
-import tasksRouter from './routes/tasksRouter.js';
+import tasksRouter from '../routes/tasksRouter.js';
 
 const whiteList = ['http://localhost:3000'];
 
