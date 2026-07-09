@@ -1,0 +1,118 @@
+========================================
+  Migration & Bug-Fix Report
+  Date: July 9, 2026
+========================================
+
+--- BUGS FIXED ---
+
+1. database/queries.ts
+   - Removed unused import: `import { number } from "zod"` (not exported, not used)
+   - Fixed `parseInt(countResults.rows[0]?.total)` → `parseInt(countResults.rows[0]?.total ?? "0", 10)`
+     - `noUncheckedIndexedAccess` made `countResults.rows[0]?.total` return `string | undefined`
+     - `parseInt` expects `string`, so `undefined` would cause a TS error
+     - Fixed by providing a fallback with nullish coalescing (??)
+
+2. database/pool.js → database/pool.ts
+   - Converted from plain JS to TypeScript
+   - Uses `Number(process.env.DB_PORT) || 5432` for safe type-coercion of env variable
+
+3. routes/tasksRouter.ts
+   - Removed unused import: `import { from } from 'node:stream/iter'` (dead code)
+   - Fixed `Request` / `Response` imports with `type` modifier for `verbatimModuleSyntax` compliance
+   - These are only used as type annotations, not runtime values
+
+4. src/schemas/schema.ts
+   - Replaced `z.string().transform(Number).pipe(z.number().positive().int())` with `z.coerce.number().int().positive()`
+     - Old: `Number("")` returns `0`, then fails `.positive()`
+     - New: `z.coerce.number()` returns `NaN` for empty/invalid strings, cleaner failure path
+   - Removed `.datetime()` from `due_date` to accept any date string format
+   - Added `.max(100)` to `limit` as a safety bound
+   - Consistent spacing/indentation
+
+5. src/server.ts
+   - Fixed `corsOptions` variable typed as `CorsOptions` (was untyped → implicit `any` on callback params)
+   - Fixed `origin` callback: reordered check to `!origin || whiteList.includes(origin)`
+     - TypeScript narrows `origin` to `string` after `!origin` is false, making `.includes()` valid
+   - Fixed `PORT`: `Number(process.env.PORT) || 3000` instead of `process.env.PORT || 3000`
+     - `process.env.PORT` is `string | undefined`, old code gave `string | number` → type mismatch for `listen()`
+     - `Number()` always returns `number`, `NaN || 3000` safely falls back
+   - Added explicit `Request` / `Response` types with `type` import modifier
+   - Marked unused `req` parameter as `_req` for clarity
+
+6. tsconfig.json
+   - Changed `include` from `["src/**/*"]` to `["src/**/*.ts", "routes/**/*.ts", "database/**/*.ts"]`
+   - Old config excluded `routes/` and `database/` from type-checking (they ran via tsx but tsc ignored them)
+   - New config covers every .ts source directory in the project
+
+7. package.json
+   - Updated `start` script: `"tsx src/server.ts"` (runs TypeScript directly without compilation step)
+   - Added `dev` script: `"tsx watch src/server.ts"` (auto-restart on file changes)
+   - Added `@types/pg` dev dependency for PostgreSQL type declarations
+
+--- BEST PRACTICES APPLIED ---
+
+1. Type-only imports with verbatimModuleSyntax
+   Why: The project uses `verbatimModuleSyntax: true`, which requires `import type` for imports
+        that are erased at runtime. This prevents unused runtime imports and keeps the
+        compiled output clean.
+   How: Used `import type { CorsOptions } from 'cors'` and
+        `import express, { type Request, type Response } from 'express'`.
+        The `type` modifier tells TS to erase the import in compiled output.
+
+2. Deriving types from Zod schemas (single source of truth)
+   Why: Hand-writing `TaskUpdates` interface duplicated the schema definition.
+        If the schema changed, the interface would go out of sync silently.
+   How: Replaced the hand-written interface with:
+        `type TaskUpdates = z.infer<typeof PatchTasksSchema>`
+        Now the TypeScript type is always derived from the actual validation schema.
+
+3. Nullish coalescing (??) over falsy fallback (||)
+   Why: `??` only falls back for `null`/`undefined`, while `||` falls back for ANY falsy value
+        (0, "", false), which can mask bugs.
+   How: Used `countResults.rows[0]?.total ?? "0"` instead of `countResults.rows[0]?.total || "0"`.
+        If `total` happened to be `0`, `||` would incorrectly fall back to "0".
+
+4. z.coerce.number() over z.string().transform(Number)
+   Why: `z.coerce.number()` is the idiomatic Zod approach for parsing numbers from strings.
+        It handles edge cases like empty strings more predictably and is more readable.
+   How: Replaced `z.string().transform(Number).pipe(z.number().positive().int())`
+        with `z.coerce.number().int().positive().default(1)`.
+
+5. Safe catch-error handling
+   Why: TypeScript 6 (with `strict: true`) types catch variables as `unknown`.
+        Accessing `.message` directly causes a TS error.
+   How: Used `error instanceof Error ? error.message : String(error)` to safely extract
+        error messages while handling non-Error thrown values.
+
+6. Process env type safety
+   Why: `process.env` values are `string | undefined` with `noUncheckedIndexedAccess`.
+        Passing them directly to functions expecting `number` or `string` causes TS errors.
+   How: Used `Number(process.env.PORT) || 3000` and `Number(process.env.DB_PORT) || 5432`
+        to safely coerce environment variables to numbers with fallbacks.
+
+7. Early return with guard clauses
+   Why: Improves readability and prevents accidental fall-through.
+   How: All validation failures and error cases use `return res.status(...).json(...)`
+        with an explicit `return` to stop execution.
+
+8. Contextual typing with type annotations on object literals
+   Why: Without a type annotation, an object literal's methods don't get contextual
+        parameter types, causing implicit `any` errors.
+   How: Typed `const corsOptions: CorsOptions = { ... }` so the `origin` callback's
+        `origin` and `callback` parameters are automatically inferred with correct types.
+
+--- FILE STRUCTURE (after migration) ---
+
+practice-dashboard/
+├── database/
+│   ├── pool.ts          (DB connection pool)
+│   └── queries.ts       (SQL query functions)
+├── routes/
+│   └── tasksRouter.ts   (Express route handlers)
+├── src/
+│   ├── schemas/
+│   │   └── schema.ts    (Zod validation schemas)
+│   └── server.ts        (Express app entry point)
+├── tsconfig.json
+├── package.json
+└── report.txt

@@ -1,9 +1,7 @@
-import express from 'express';
-import {Request,Response} from  'express';
+import express, { type Request, type Response } from 'express';
 import {GetTasksSchema,PostTasksSchema,PatchTasksSchema} from '../src/schemas/schema.js';
 const router = express.Router();
 import { getTasks, patchTasks, postTasks } from '../database/queries.js';
-import { from } from 'node:stream/iter';
 
    
 router.get('/', async (req :Request, res:Response) => {
@@ -52,7 +50,9 @@ router.patch('/:id', async (req:Request, res:Response) => {
    
     const taskId = req.params.id;
     const bodyParse = PatchTasksSchema.safeParse(req.body);
-
+    if (!taskId || Array.isArray(taskId)) {
+      return res.status(400).json({ error: "Invalid Task ID format" });
+    }
     if(!bodyParse.success){
       return res.status(400).json({error:'Invalid body data',details:bodyParse.error.format()});
     }

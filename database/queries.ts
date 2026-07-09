@@ -1,13 +1,8 @@
-import { number } from "zod";
 import pool from "./pool.js"
+import type { z } from "zod";
+import type { PatchTasksSchema } from "../src/schemas/schema.js";
 
-interface TaskUpdates {
-  title?: string;
-  assigned_to?: string;
-  priority?: string;
-  status?: string;
-  due_date?: string | Date;
-}
+type TaskUpdates = z.infer<typeof PatchTasksSchema>;
 
 export async function getTasks(assigned_person:string, priority:string|undefined, limit:number, offset:number, current_page:number) {
 
@@ -37,7 +32,7 @@ export async function getTasks(assigned_person:string, priority:string|undefined
     `
 
     const countResults = await pool.query(countQuery, [...queryParams])
-    const totalCount = parseInt(countResults.rows[0]?.total) || 0
+    const totalCount = parseInt(countResults.rows[0]?.total ?? "0", 10) || 0
 
     const response = {
       tasks: tasksResults.rows,
@@ -86,18 +81,19 @@ export async function postTasks(title:string, assigned_to:string,priority:string
 }
 
 
-export async function patchTasks(taskId:number,Updates:TaskUpdates) {
+export async function patchTasks(taskId:string,Updates:TaskUpdates) {
 
   try{
-    let queryPart:(string|number)[] = []
-    let queryValues: = []
+    let queryParts:string[] = []
+    let queryValues:(string|number|Date)[] = []
     let PlaceHolderIndex = 1
-    for (const key in Updates) {
+    for (const [key,value] of Object.entries(Updates)) {
       if (
         ['title', 'assigned_to', 'priority', 'status', 'due_date'].includes(key)
+        && value !== undefined
       ) {
         queryParts.push(`${key} = $${PlaceHolderIndex}`)
-        queryValues.push(Updates[key])
+        queryValues.push(value);
         PlaceHolderIndex++
       }
     }
@@ -116,7 +112,8 @@ export async function patchTasks(taskId:number,Updates:TaskUpdates) {
     
     return updatedTask?.rows[0];
   }catch(error){
-    console.error("Database error patchTasks",error.message);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error('Database patchTasks error',errMsg);
     throw error;
   }
 }

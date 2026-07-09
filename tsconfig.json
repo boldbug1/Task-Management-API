@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     // File Layout
-    "rootDir": "./src",
+    "rootDir": "./",
     "outDir": "./dist",
 
     // Environment Settings
@@ -28,6 +28,5 @@
     "moduleDetection": "force",
     "skipLibCheck": true
   },
-  // FIXED: Added this so TS knows to only compile your source files
-  "include": ["src/**/*"] 
+  "include": ["src/**/*.ts", "routes/**/*.ts", "database/**/*.ts"] 
 }
