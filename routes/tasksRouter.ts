@@ -2,6 +2,7 @@ import express, { type Request, type Response } from 'express';
 import {GetTasksSchema,PostTasksSchema,PatchTasksSchema} from '../src/schemas/schema.js';
 const router = express.Router();
 import { getTasks, patchTasks, postTasks } from '../database/queries.js';
+import {  verifyToken } from '../middleware/auth.js';
 
    
 router.get('/', async (req :Request, res:Response) => {
@@ -25,7 +26,7 @@ router.get('/', async (req :Request, res:Response) => {
   }
 })
 
-router.post('/', async (req:Request, res:Response) => {
+router.post('/',verifyToken, async (req:Request, res:Response) => {
   try {
     const bodyParse = PostTasksSchema.safeParse(req.body);
 
